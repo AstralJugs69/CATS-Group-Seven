@@ -2,7 +2,14 @@ import { Application, Router } from "https://deno.land/x/oak@v12.6.1/mod.ts";
 import {
   Lucid,
   Blockfrost,
+  Data,
   fromText,
+  applyParamsToScript,
+  mintingPolicyToId, 
+  type Address,
+  type MintingPolicy,
+  type PolicyId,
+  type Unit,
 } from "npm:@lucid-evolution/lucid@latest";
 
 const router = new Router();
@@ -34,6 +41,32 @@ router.post("/mint", async (context) => {
     const utxo = utxos[0];
     console.log("Selected Param UTXO:", utxo.txHash);
 
+    const Params = Data.Tuple([Data.Bytes(), Data.Integer(), Data.Bytes()]);
+    type Params = Data.Static<typeof Params>;
+
+    const nftPolicy: MintingPolicy = {
+      type: "PlutusV3", 
+      script: applyParamsToScript(
+        body.cborHex, 
+        [
+            utxo.txHash,              
+            BigInt(utxo.outputIndex), 
+            tn                        
+        ], 
+        Params
+      ),
+    };
+
+    const policyId: PolicyId = mintingPolicyToId(nftPolicy);
+    const unit: Unit = policyId + tn;
+    console.log("Minting Unit:", unit);
+
+    const metadata = {
+      [policyId]: {
+        [tokenName]: body.metadata
+      },
+    };
+    
   } catch (error) {
     console.error("FULL ERROR:", error); // This prints the stack trace if it fails again
     context.response.status = 500;
