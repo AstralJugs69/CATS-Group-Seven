@@ -1,0 +1,92 @@
+{
+  "preamble": {
+    "title": "esubalew/smart-contract",
+    "description": "Aiken contracts for project 'esubalew/smart-contract'",
+    "version": "0.0.0",
+    "plutusVersion": "v3",
+    "compiler": {
+      "name": "Aiken",
+      "version": "v1.1.19+unknown"
+    },
+    "license": "Apache-2.0"
+  },
+  "validators": [
+    {
+      "title": "api/mint.one_shot.mint",
+      "redeemer": {
+        "title": "_redeemer",
+        "schema": {
+          "$ref": "#/definitions/Void"
+        }
+      },
+      "parameters": [
+        {
+          "title": "tx_hash",
+          "schema": {
+            "$ref": "#/definitions/ByteArray"
+          }
+        },
+        {
+          "title": "output_index",
+          "schema": {
+            "$ref": "#/definitions/Int"
+          }
+        },
+        {
+          "title": "_token_name",
+          "schema": {
+            "$ref": "#/definitions/ByteArray"
+          }
+        }
+      ],
+      "compiledCode": "58d301010022229800aba2aba1aab9faab9eaab9dab9a9bae0049bad0039bae00248888888896600264646644b30013370e900018049baa0018cc004dd7180618051baa001acc004cdc3a400060126ea800a2b3001300a3754005149a2c805a2c804244b30010018a508acc004c96600266e3cdd7180798069baa00100a899b87375a601e6020601a6ea8004026294100b180718061baa300e0018a518998010011807800a0144034911198008009bac300f300d3754601e00e8b2010300a001300a300b001300a00130063754015149a26cac8021",
+      "hash": "4067fcf1fbda16bb51a89823c842346376e3084901beeb5e6ad8831d"
+    },
+    {
+      "title": "api/mint.one_shot.else",
+      "redeemer": {
+        "schema": {}
+      },
+      "parameters": [
+        {
+          "title": "tx_hash",
+          "schema": {
+            "$ref": "#/definitions/ByteArray"
+          }
+        },
+        {
+          "title": "output_index",
+          "schema": {
+            "$ref": "#/definitions/Int"
+          }
+        },
+        {
+          "title": "_token_name",
+          "schema": {
+            "$ref": "#/definitions/ByteArray"
+          }
+        }
+      ],
+      "compiledCode": "58d301010022229800aba2aba1aab9faab9eaab9dab9a9bae0049bad0039bae00248888888896600264646644b30013370e900018049baa0018cc004dd7180618051baa001acc004cdc3a400060126ea800a2b3001300a3754005149a2c805a2c804244b30010018a508acc004c96600266e3cdd7180798069baa00100a899b87375a601e6020601a6ea8004026294100b180718061baa300e0018a518998010011807800a0144034911198008009bac300f300d3754601e00e8b2010300a001300a300b001300a00130063754015149a26cac8021",
+      "hash": "4067fcf1fbda16bb51a89823c842346376e3084901beeb5e6ad8831d"
+    }
+  ],
+  "definitions": {
+    "ByteArray": {
+      "dataType": "bytes"
+    },
+    "Int": {
+      "dataType": "integer"
+    },
+    "Void": {
+      "title": "Unit",
+      "anyOf": [
+        {
+          "dataType": "constructor",
+          "index": 0,
+          "fields": []
+        }
+      ]
+    }
+  }
+}
