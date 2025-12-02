@@ -60,6 +60,12 @@ Use:
 aiken docs
 ```
 
+## How to start the server
+
+```
+deno run --allow-net --allow-read --allow-env --allow-sys main.ts
+```
+
 ## Resources
 
 Find more on the [Aiken's user manual](https://aiken-lang.org).
