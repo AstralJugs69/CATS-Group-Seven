@@ -1,0 +1,14 @@
+@import './tailwind.css';
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.ethio-gradient {
+  background: linear-gradient(135deg, #da121a 0%, #fcd116 50%, #1a5632 100%);
+}
