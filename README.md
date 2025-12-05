@@ -32,24 +32,27 @@ This is the core blockchain component of the application. It handles the logic f
       * **One-Shot Minting:** A parameterized minting policy that guarantees an NFT is unique by consuming a specific UTXO during minting.
       * **REST API:** A Deno-based API server that handles minting requests, metadata attachment, and transaction submission.
 
-### 2\. Frontend (Detail coming soon)
+### 2\. Frontend (Web User Interface)
 
-The user interface for interacting with the dApp.
+The user interface for interacting with the dApp, built to ensure transparency and ease of use for all stakeholders.
 
-  * **Tech Stack:** *[React, Next.js, Tailwind CSS ...]*
+  * **Tech Stack:** **React** (v18), **Vite** (v4), **Tailwind CSS**, **Framer Motion**.
   * **Key Features:**
-      * Dashboard for viewing Coffee assets.
-      * Forms for initiating minting transactions.
+      * **Role-Based Portals:** Dedicated dashboards for Farmers (Harvest Registration), Processors (Status Updates), and Consumers (Product Verification).
+      * **Progressive Web App (PWA):** Fully offline-capable for field usage in rural areas.
+      * **Real-Time Tracking:** Visual journey timeline of the coffee batch from farm to cup.
+      * **Cardano Wallet Integration:** Connects with Nami/Eternl for secure signing and tipping.
 
-### 3\. Backend (Detail coming soon)
+### 3\. Backend (Data & Infrastructure)
 
-The off-chain infrastructure supporting the frontend and managing non-blockchain data.
+The off-chain infrastructure supporting the frontend and managing non-blockchain data synchronization.
 
-  * **Tech Stack:** *[Insert Tech, e.g., Node.js, Express, PostgreSQL, or Python ...]*
+  * **Tech Stack:** **Supabase** (PostgreSQL), Row Level Security (RLS).
   * **Key Features:**
-      * User authentication.
-      * Caching blockchain data.
-      * Business logic processing.
+      * **Robust Schema:** Relational models for Users, Batches, and immutable Status Updates.
+      * **Security:** Fine-grained RLS policies ensuring farmers can only manage their crops and processors can only update assigned batches.
+      * **Duplicate Prevention:** Constraints to ensure unique status updates and data integrity.
+      * **Hybrid Storage:** Bridges on-chain metadata with off-chain rich media and detailed logs.
 
 -----
 
@@ -111,6 +114,7 @@ The system follows a 3-tier architecture integrated with the Cardano Blockchain:
 **CATS Group Seven Team:**
 
   * Esubalew Amenu
+  * Yabsra Melaku
   * please team members, add your name here*
 
 -----
