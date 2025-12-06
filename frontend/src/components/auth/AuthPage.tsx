@@ -77,10 +77,17 @@ export default function AuthPage() {
                 });
                 if (error) throw error;
 
-                if (data.session) {
+                // Always try to create profile and navigate
+                // With email confirmation disabled, data.session will exist
+                // With email confirmation enabled, the trigger will handle profile creation
+                if (data.user) {
                     await ensureProfile(data.user);
+                }
+
+                if (data.session) {
                     navigate(`/${role}`);
                 } else {
+                    // Only show this if email confirmation is still required
                     setSuccessMsg('Sign up successful! Please check your email for confirmation.');
                 }
             }
