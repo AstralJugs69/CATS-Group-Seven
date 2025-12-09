@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { HarvestData } from '../../types/supplychain';
 import { useBatches } from '../../hooks/useBatches';
-import { CROP_TYPES, COFFEE_VARIETIES, PROCESS_METHODS } from '../../utils/constants';
+import { COFFEE_VARIETIES, PROCESS_METHODS } from '../../utils/constants';
 import LoadingSpinner from '../common/LoadingSpinner';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/Card';
 import { Button } from '../ui/Button';
@@ -16,7 +16,7 @@ export default function HarvestForm({ onSuccess }: HarvestFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState<HarvestData>({
-    cropType: 'coffee',
+    cropType: 'coffee', // Default crop type is always coffee
     weight: 0,
     location: '',
     variety: COFFEE_VARIETIES[0],
@@ -47,31 +47,6 @@ export default function HarvestForm({ onSuccess }: HarvestFormProps) {
   const prevStep = () => setStep(s => s - 1);
 
   const renderStep1 = () => (
-    <div className="space-y-6">
-      <h3 className="text-lg font-semibold text-stone-800">What are you harvesting?</h3>
-      <div className="grid grid-cols-2 gap-4">
-        {CROP_TYPES.map((crop) => (
-          <button
-            key={crop.value}
-            type="button"
-            onClick={() => handleChange('cropType', crop.value)}
-            className={cn(
-              "p-6 border-2 rounded-xl text-center transition-all flex flex-col items-center justify-center h-40",
-              formData.cropType === crop.value
-                ? "border-emerald-500 bg-emerald-50 text-emerald-700 shadow-md"
-                : "border-stone-200 hover:border-stone-300 text-stone-600 bg-white"
-            )}
-          >
-            <div className="text-4xl mb-3">{crop.icon}</div>
-            <div className="text-lg font-medium">{crop.label}</div>
-          </button>
-        ))}
-      </div>
-      <Button onClick={nextStep} className="w-full h-12 text-lg">Next: Details</Button>
-    </div>
-  );
-
-  const renderStep2 = () => (
     <div className="space-y-6">
       <h3 className="text-lg font-semibold text-stone-800">Harvest Details</h3>
 
@@ -113,14 +88,11 @@ export default function HarvestForm({ onSuccess }: HarvestFormProps) {
         </select>
       </div>
 
-      <div className="flex space-x-3">
-        <Button variant="outline" onClick={prevStep} className="flex-1 h-12">Back</Button>
-        <Button onClick={nextStep} className="flex-[2] h-12">Next: Location</Button>
-      </div>
+      <Button onClick={nextStep} className="w-full h-12 text-lg">Next: Location</Button>
     </div>
   );
 
-  const renderStep3 = () => (
+  const renderStep2 = () => (
     <div className="space-y-6">
       <h3 className="text-lg font-semibold text-stone-800">Location Data</h3>
 
@@ -167,23 +139,22 @@ export default function HarvestForm({ onSuccess }: HarvestFormProps) {
       <Card className="border-0 shadow-none md:border md:shadow-sm">
         <CardHeader className="text-center pb-2">
           <div className="flex justify-center space-x-2 mb-4">
-            {[1, 2, 3].map((i) => (
+            {[1, 2].map((i) => (
               <div
                 key={i}
                 className={cn(
-                  "h-2 w-16 rounded-full transition-colors",
+                  "h-2 w-24 rounded-full transition-colors",
                   step >= i ? "bg-emerald-500" : "bg-stone-200"
                 )}
               />
             ))}
           </div>
-          <CardTitle>New Harvest</CardTitle>
+          <CardTitle>New Coffee Harvest</CardTitle>
         </CardHeader>
 
         <CardContent>
           {step === 1 && renderStep1()}
           {step === 2 && renderStep2()}
-          {step === 3 && renderStep3()}
         </CardContent>
       </Card>
     </div>
