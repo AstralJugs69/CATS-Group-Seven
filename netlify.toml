@@ -15,7 +15,13 @@
 [build.environment]
   NODE_VERSION = "18"
 
-# SPA routing - redirect all paths to index.html
+# Let Netlify Functions handle their own routing (MUST come before SPA catch-all)
+[[redirects]]
+  from = "/.netlify/*"
+  to = "/.netlify/:splat"
+  status = 200
+
+# SPA routing - redirect all OTHER paths to index.html
 [[redirects]]
   from = "/*"
   to = "/index.html"
