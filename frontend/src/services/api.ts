@@ -19,6 +19,7 @@ function mapSupabaseBatchToAppBatch(
     batch: Database['public']['Tables']['batches']['Row'] & {
         users: Database['public']['Tables']['users']['Row'];
         status_updates: Database['public']['Tables']['status_updates']['Row'][];
+        blockchain_metadata?: Database['public']['Tables']['blockchain_metadata']['Row'] | null;
     }
 ): Batch {
     // Sort status updates by creation time
@@ -31,7 +32,7 @@ function mapSupabaseBatchToAppBatch(
         timestamp: update.created_at,
         actor: {
             id: update.actor_id,
-            name: update.actor_role, // Ideally we'd join the actor's name here too, but role works for now or we need another join
+            name: update.actor_role,
         },
         location: update.location ? JSON.stringify(update.location) : undefined,
         data: update.update_data as any,
@@ -46,6 +47,10 @@ function mapSupabaseBatchToAppBatch(
         walletAddress: batch.users.cardano_wallet_address || '',
     };
 
+    // Check minting status from blockchain_metadata
+    const blockchainMeta = batch.blockchain_metadata;
+    const isMinted = !!blockchainMeta;
+
     return {
         id: batch.id,
         batchNumber: batch.batch_number,
@@ -59,6 +64,10 @@ function mapSupabaseBatchToAppBatch(
         status: batch.status as any,
         grade: batch.grade || undefined,
         journey,
+        isMinted,
+        mintTxHash: blockchainMeta?.mint_transaction_hash || undefined,
+        mintUnit: blockchainMeta ? `${blockchainMeta.policy_id}${blockchainMeta.asset_name_hex}` : undefined,
+        policyId: blockchainMeta?.policy_id || undefined,
     };
 }
 
@@ -67,7 +76,7 @@ function mapSupabaseBatchToAppBatch(
 // ============================================================================
 
 /**
- * Fetch all batches
+ * Fetch all batches with minting status
  */
 export async function getAllBatches(): Promise<Batch[]> {
     const { data, error } = await supabase
@@ -75,7 +84,8 @@ export async function getAllBatches(): Promise<Batch[]> {
         .select(`
             *,
             users (*),
-            status_updates (*)
+            status_updates (*),
+            blockchain_metadata (*)
         `)
         .order('created_at', { ascending: false });
 
@@ -299,12 +309,14 @@ export async function healthCheck(): Promise<{ status: string; message?: string 
 }
 
 /**
- * Record blockchain minting metadata
+ * Record blockchain minting metadata from API response
  */
 export async function recordMinting(
     batchId: string,
     policyId: string,
     assetName: string,
+    txHash: string,
+    unit: string,
     metadata: any
 ): Promise<void> {
     // Check if already minted
@@ -323,14 +335,17 @@ export async function recordMinting(
         throw new ApiError(findError.message, parseInt(findError.code), findError.details);
     }
 
+    // Extract asset_name_hex from unit (unit = policyId + assetNameHex)
+    const assetNameHex = unit.replace(policyId, '');
+
     const { error } = await supabase
         .from('blockchain_metadata')
         .insert({
             batch_id: batchId,
             policy_id: policyId,
             asset_name: assetName,
-            asset_name_hex: assetName.split('').map(c => c.charCodeAt(0).toString(16).padStart(2, '0')).join(''),
-            mint_transaction_hash: `tx_${Date.now()}_${Math.random().toString(36).substring(7)}`, // Mock TX Hash for now
+            asset_name_hex: assetNameHex,
+            mint_transaction_hash: txHash,
             cip25_metadata: metadata
         } as any);
 

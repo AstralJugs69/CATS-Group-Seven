@@ -27,7 +27,8 @@ export default function DashboardLayout({ children, role, title, subtitle }: Das
         return [
           { id: 'batches', path: '/union/batches', label: 'Batches', icon: '📦' },
           { id: 'new', path: '/union/new-harvest', label: 'New Harvest', icon: '🌱' },
-          { id: 'mint', path: '/union/mint', label: 'Mint', icon: '🪙' }
+          { id: 'mint', path: '/union/mint', label: 'Mint', icon: '🪙' },
+          { id: 'minted', path: '/union/minted', label: 'Minted', icon: '🔗' }
         ];
       case 'processor':
         return [

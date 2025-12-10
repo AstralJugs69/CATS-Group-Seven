@@ -1,65 +1,81 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Batch } from '../../types/supplychain';
-import { useWallet } from '../../hooks/useWallet';
+import { mintBatchToken, getCardanoScanTxUrl, getCardanoScanTokenUrl, MintError } from '../../services/cardanoApi';
 import { recordMinting } from '../../services/api';
-import WalletConnector from '../common/WalletConnector';
 import QRCodeDisplay from '../common/QRCodeDisplay';
 import LoadingSpinner from '../common/LoadingSpinner';
+import { Card, CardContent } from '../ui/Card';
+import { Button } from '../ui/Button';
 
 interface MintBatchProps {
   batch: Batch | null;
+  onMintSuccess?: () => void;
 }
 
-export default function MintBatch({ batch }: MintBatchProps) {
-  const { wallet, connectWallet, disconnectWallet, isConnecting, sendTip } = useWallet();
+interface MintResult {
+  txHash: string;
+  unit: string;
+  policyId: string;
+}
+
+export default function MintBatch({ batch, onMintSuccess }: MintBatchProps) {
+  const navigate = useNavigate();
   const [isMinting, setIsMinting] = useState(false);
-  const [mintedToken, setMintedToken] = useState<string | null>(null);
+  const [mintResult, setMintResult] = useState<MintResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const handleMint = async () => {
-    if (!batch || !wallet) return;
+    if (!batch) return;
 
     setIsMinting(true);
+    setError(null);
+
     try {
-      // Generate metadata
-      const policyId = `policy_${Date.now()}`; // Mock Policy ID
-      const assetName = `BATCH${batch.id.substring(0, 8)}`;
+      // Call the real Cardano minting API
+      const response = await mintBatchToken(batch);
+
+      // Generate token name for record
+      const tokenName = `Coffee#${batch.batchNumber?.replace('BATCH-', '') || batch.id.substring(0, 8)}`;
+
+      // Build metadata that was sent
       const metadata = {
-        "721": {
-          [policyId]: {
-            [assetName]: {
-              name: `${batch.variety} - ${batch.location}`,
-              image: "ipfs://QmMockHash",
-              description: `Premium ${batch.cropType} from ${batch.location}`,
-              project: "Ethio-Origin",
-              origin: {
-                farmer: batch.farmer.name,
-                region: batch.location,
-                elevation: batch.farmer.elevation,
-                gps: batch.farmer.gps,
-                harvest_date: batch.harvestDate
-              },
-              specifications: {
-                variety: batch.variety,
-                process: "Washed", // Should come from batch details
-                initial_weight: `${batch.initialWeight}kg`
-              },
-              files: []
-            }
-          }
-        }
+        name: `Coffee batch ${batch.batchNumber || batch.id.substring(0, 8)}`,
+        weight: String(batch.initialWeight),
+        unit: 'kg',
+        variety: batch.variety,
+        farmer: batch.farmer?.name || 'Unknown',
+        harvestDate: batch.harvestDate,
+        cropType: batch.cropType
       };
 
-      // Record minting in database
-      await recordMinting(batch.id, policyId, assetName, metadata);
+      // Record the minting in our database
+      await recordMinting(
+        batch.id,
+        response.policyId,
+        tokenName,
+        response.txHash,
+        response.unit,
+        metadata
+      );
 
-      const tokenId = `${policyId}.${assetName}`;
-      setMintedToken(tokenId);
+      setMintResult({
+        txHash: response.txHash,
+        unit: response.unit,
+        policyId: response.policyId
+      });
 
-      console.log('Minting batch:', batch.id);
-      console.log('Wallet:', wallet.address);
-    } catch (error) {
-      console.error('Minting failed:', error);
-      alert('Minting failed: ' + (error as any).message);
+      // Notify parent to refresh
+      if (onMintSuccess) {
+        onMintSuccess();
+      }
+    } catch (err) {
+      console.error('Minting failed:', err);
+      if (err instanceof MintError) {
+        setError(err.message);
+      } else {
+        setError('Failed to mint batch: ' + (err as Error).message);
+      }
     } finally {
       setIsMinting(false);
     }
@@ -67,123 +83,208 @@ export default function MintBatch({ batch }: MintBatchProps) {
 
   if (!batch) {
     return (
-      <div className="bg-white rounded-xl shadow-lg p-8 text-center">
+      <Card className="p-8 text-center">
         <div className="w-20 h-20 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
           <span className="text-2xl">🪙</span>
         </div>
         <h3 className="text-xl font-semibold text-gray-700 mb-2">Select a Batch</h3>
-        <p className="text-gray-500">
+        <p className="text-gray-500 mb-4">
           Please select a batch from your list to mint as a Cardano native asset
         </p>
-      </div>
+        <Button onClick={() => navigate('/union/batches')}>
+          View Batches
+        </Button>
+      </Card>
     );
   }
 
-  const handleConnect = async (walletName: string): Promise<void> => {
-    await connectWallet(walletName);
-  };
-
-  return (
-    <div className="max-w-4xl mx-auto">
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-2xl">🪙</span>
+  // Already minted
+  if (batch.isMinted) {
+    return (
+      <Card className="p-8">
+        <div className="text-center mb-6">
+          <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <span className="text-2xl">✓</span>
           </div>
-          <h2 className="text-2xl font-bold text-gray-800">Mint Batch Token</h2>
-          <p className="text-gray-600">Create a Cardano native asset for your harvest batch</p>
+          <h2 className="text-2xl font-bold text-gray-800">Already Minted</h2>
+          <p className="text-gray-600">This batch has already been tokenized on the blockchain.</p>
         </div>
 
-        {/* Batch Info */}
-        <div className="bg-gray-50 rounded-lg p-4 mb-6">
-          <h3 className="font-semibold text-gray-800 mb-2">Batch Information</h3>
-          <div className="grid grid-cols-2 gap-2 text-sm">
-            <div><span className="font-medium">ID:</span> {(batch as any).batch_number || batch.id.substring(0, 8)}</div>
-            <div><span className="font-medium">Crop:</span> {batch.cropType}</div>
-            <div><span className="font-medium">Weight:</span> {batch.initialWeight}kg</div>
-            <div><span className="font-medium">Location:</span> {batch.location}</div>
-          </div>
-        </div>
-
-        {/* Wallet Connection */}
-        <div className="mb-6">
-          <h3 className="font-semibold text-gray-800 mb-3">1. Connect Wallet</h3>
-          <WalletConnector
-            onConnect={handleConnect}
-            onDisconnect={disconnectWallet}
-            wallet={wallet}
-            isConnecting={isConnecting}
-          />
-        </div>
-
-        {/* Minting Section */}
-        {wallet && (
-          <div className="mb-6">
-            <h3 className="font-semibold text-gray-800 mb-3">2. Mint Token</h3>
-            {!mintedToken ? (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                <p className="text-yellow-800 mb-4">
-                  This will create a unique Cardano native asset representing your batch.
-                  The token will include metadata about the harvest and origin.
-                </p>
-                <button
-                  onClick={handleMint}
-                  disabled={isMinting}
-                  className="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-3 px-6 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-                >
-                  {isMinting ? (
-                    <>
-                      <LoadingSpinner size="sm" />
-                      <span className="ml-2">Minting...</span>
-                    </>
-                  ) : (
-                    'Mint Batch Token'
-                  )}
-                </button>
-              </div>
-            ) : (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <div className="flex items-center mb-2">
-                  <span className="text-green-500 text-lg mr-2">✓</span>
-                  <span className="font-semibold text-green-800">Token Minted Successfully!</span>
-                </div>
-                <p className="text-green-700 mb-4">
-                  Your batch has been tokenized on the Cardano blockchain.
-                </p>
-                <QRCodeDisplay
-                  data={mintedToken}
-                  title="Batch Token QR"
-                />
+        <div className="bg-emerald-50 rounded-lg p-4 mb-6">
+          <h3 className="font-semibold text-emerald-800 mb-2">Blockchain Details</h3>
+          <div className="space-y-2 text-sm">
+            {batch.mintTxHash && (
+              <div>
+                <span className="text-emerald-600">Transaction:</span>{' '}
+                <span className="font-mono">{batch.mintTxHash.substring(0, 30)}...</span>
               </div>
             )}
           </div>
-        )}
+        </div>
 
-        {/* Token Metadata Preview */}
-        {wallet && !mintedToken && (
-          <div>
-            <h3 className="font-semibold text-gray-800 mb-3">Token Metadata Preview</h3>
-            <div className="bg-gray-800 text-green-400 p-4 rounded-lg font-mono text-sm overflow-x-auto">
-              {JSON.stringify({
-                "721": {
-                  "[POLICY_ID]": {
-                    "[ASSET_NAME]": {
-                      "name": `${batch.variety} - ${batch.location}`,
-                      "image": "ipfs://...",
-                      "description": `Premium ${batch.cropType} from ${batch.location}`,
-                      "origin": {
-                        "farmer": batch.farmer.name,
-                        "region": batch.location,
-                        "harvest_date": batch.harvestDate
-                      }
-                    }
-                  }
-                }
-              }, null, 2)}
+        <div className="flex gap-3">
+          {batch.mintTxHash && (
+            <a href={getCardanoScanTxUrl(batch.mintTxHash)} target="_blank" rel="noopener noreferrer" className="flex-1">
+              <Button variant="outline" className="w-full">View on CardanoScan</Button>
+            </a>
+          )}
+          <Button onClick={() => navigate('/union/minted')} className="flex-1">
+            View Minted Batches
+          </Button>
+        </div>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="max-w-2xl mx-auto">
+      <Card>
+        <CardContent className="p-6">
+          <div className="text-center mb-8">
+            <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-2xl">🪙</span>
+            </div>
+            <h2 className="text-2xl font-bold text-gray-800">Mint Batch Token</h2>
+            <p className="text-gray-600">Create a Cardano native asset for this harvest batch</p>
+          </div>
+
+          {/* Error Display */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+              <p className="text-red-800">{error}</p>
+            </div>
+          )}
+
+          {/* Batch Info */}
+          <div className="bg-gray-50 rounded-lg p-4 mb-6">
+            <h3 className="font-semibold text-gray-800 mb-3">Batch Information</h3>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <span className="text-gray-500">Batch ID:</span>
+                <span className="block font-medium">{batch.batchNumber || batch.id.substring(0, 8)}</span>
+              </div>
+              <div>
+                <span className="text-gray-500">Crop:</span>
+                <span className="block font-medium capitalize">{batch.cropType}</span>
+              </div>
+              <div>
+                <span className="text-gray-500">Weight:</span>
+                <span className="block font-medium">{batch.initialWeight}kg</span>
+              </div>
+              <div>
+                <span className="text-gray-500">Variety:</span>
+                <span className="block font-medium">{batch.variety}</span>
+              </div>
+              <div>
+                <span className="text-gray-500">Farmer:</span>
+                <span className="block font-medium">{batch.farmer.name}</span>
+              </div>
+              <div>
+                <span className="text-gray-500">GPS:</span>
+                <span className="block font-medium text-xs">{batch.farmer.gps || 'N/A'}</span>
+              </div>
             </div>
           </div>
-        )}
-      </div>
+
+          {/* Minting Section */}
+          {!mintResult ? (
+            <div className="space-y-4">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <p className="text-yellow-800 text-sm">
+                  This will create a unique Cardano native asset (NFT) representing this batch.
+                  The token will include metadata about the harvest origin, farmer, and specifications.
+                  This action cannot be undone.
+                </p>
+              </div>
+
+              <Button
+                onClick={handleMint}
+                disabled={isMinting}
+                className="w-full h-12 text-lg"
+              >
+                {isMinting ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <LoadingSpinner size="sm" />
+                    Minting on Cardano...
+                  </span>
+                ) : (
+                  'Mint Batch Token'
+                )}
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {/* Success Message */}
+              <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-6 text-center">
+                <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <span className="text-emerald-600 text-xl">✓</span>
+                </div>
+                <h3 className="text-lg font-semibold text-emerald-800 mb-2">Token Minted Successfully!</h3>
+                <p className="text-emerald-700 text-sm mb-4">
+                  Your batch has been permanently recorded on the Cardano blockchain.
+                </p>
+
+                {/* Transaction Details */}
+                <div className="bg-white rounded-lg p-3 text-left space-y-2 mb-4">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Transaction Hash:</span>
+                    <span className="font-mono text-xs truncate max-w-[180px]">{mintResult.txHash}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Policy ID:</span>
+                    <span className="font-mono text-xs truncate max-w-[180px]">{mintResult.policyId}</span>
+                  </div>
+                </div>
+
+                {/* CardanoScan Links */}
+                <div className="flex gap-2 justify-center">
+                  <a
+                    href={getCardanoScanTxUrl(mintResult.txHash)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Button variant="outline" size="sm">
+                      🔍 View Transaction
+                    </Button>
+                  </a>
+                  <a
+                    href={getCardanoScanTokenUrl(mintResult.unit)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Button variant="outline" size="sm">
+                      🪙 View Token
+                    </Button>
+                  </a>
+                </div>
+              </div>
+
+              {/* QR Code */}
+              <QRCodeDisplay
+                data={mintResult.unit}
+                title="Token QR Code"
+              />
+
+              {/* Navigation */}
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => navigate('/union/batches')}
+                  className="flex-1"
+                >
+                  Back to Batches
+                </Button>
+                <Button
+                  onClick={() => navigate('/union/minted')}
+                  className="flex-1"
+                >
+                  View Minted Batches
+                </Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

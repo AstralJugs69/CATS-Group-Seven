@@ -76,6 +76,11 @@ export interface Batch {
   cuppingScore?: number;
   moistureContent?: string;
 
+  // Minting status
+  isMinted?: boolean;
+  mintTxHash?: string;
+  mintUnit?: string;
+
   // The raw metadata as it appears on-chain
   cip25Metadata?: CIP25Metadata;
 

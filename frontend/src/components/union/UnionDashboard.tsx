@@ -5,13 +5,14 @@ import { supabase } from '../../lib/supabase';
 import HarvestForm from './HarvestForm';
 import BatchList from './BatchList';
 import MintBatch from './MintBatch';
+import MintedBatchList from './MintedBatchList';
 import LoadingSpinner from '../common/LoadingSpinner';
 import DashboardLayout from '../layout/DashboardLayout';
 
 export default function UnionDashboard() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
-    const { batches, isLoading, error, removeBatch } = useBatches();
+    const { unmintedBatches, mintedBatches, isLoading, error, removeBatch, refreshBatches } = useBatches();
 
     useEffect(() => {
         supabase.auth.getUser().then(({ data: { user } }) => {
@@ -22,7 +23,8 @@ export default function UnionDashboard() {
     }, [navigate]);
 
     const batchId = searchParams.get('batchId');
-    const selectedBatch = batches.find(b => b.id === batchId) || null;
+    const selectedBatch = unmintedBatches.find(b => b.id === batchId) ||
+        mintedBatches.find(b => b.id === batchId) || null;
 
     if (isLoading) {
         return (
@@ -48,7 +50,7 @@ export default function UnionDashboard() {
                     path="batches"
                     element={
                         <BatchList
-                            batches={batches}
+                            batches={unmintedBatches}
                             onSelectBatch={(batch) => navigate(`/union/mint?batchId=${batch.id}`)}
                             selectedBatch={null}
                             onCreateBatch={() => navigate('/union/new-harvest')}
@@ -58,11 +60,27 @@ export default function UnionDashboard() {
                 />
                 <Route
                     path="new-harvest"
-                    element={<HarvestForm onSuccess={() => navigate('/union/batches')} />}
+                    element={
+                        <HarvestForm
+                            onSuccess={() => {
+                                refreshBatches();
+                                navigate('/union/batches');
+                            }}
+                        />
+                    }
                 />
                 <Route
                     path="mint"
-                    element={<MintBatch batch={selectedBatch} />}
+                    element={
+                        <MintBatch
+                            batch={selectedBatch}
+                            onMintSuccess={refreshBatches}
+                        />
+                    }
+                />
+                <Route
+                    path="minted"
+                    element={<MintedBatchList batches={mintedBatches} />}
                 />
             </Routes>
         </DashboardLayout>

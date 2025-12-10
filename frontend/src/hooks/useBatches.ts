@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Batch } from '../types/supplychain';
 import { getAllBatches, createBatch, updateBatchStatus, deleteBatch as apiDeleteBatch } from '../services/api';
 
@@ -57,8 +57,14 @@ export function useBatches() {
     loadBatches();
   }, []);
 
+  // Separate minted and unminted batches
+  const mintedBatches = useMemo(() => batches.filter(b => b.isMinted), [batches]);
+  const unmintedBatches = useMemo(() => batches.filter(b => !b.isMinted), [batches]);
+
   return {
     batches,
+    mintedBatches,
+    unmintedBatches,
     isLoading,
     error,
     addBatch,
@@ -67,3 +73,4 @@ export function useBatches() {
     refreshBatches: loadBatches
   };
 }
+
