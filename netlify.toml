@@ -8,6 +8,8 @@
   command = "npm install && npm run build"
   # Output directory (relative to base)
   publish = "dist"
+  # Functions directory (relative to base)
+  functions = "netlify/functions"
 
 # Environment variables for the build
 [build.environment]

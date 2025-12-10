@@ -6,10 +6,7 @@ interface ImportMetaEnv {
     readonly VITE_APP_URL: string;
     readonly VITE_SUPABASE_URL: string;
     readonly VITE_SUPABASE_ANON_KEY: string;
-    readonly VITE_MINT_API_URL: string;
-    readonly VITE_BLOCKFROST_KEY: string;
-    readonly VITE_SECRET_SEED: string;
-    readonly VITE_CBOR_HEX: string;
+    // Note: Minting secrets (SECRET_SEED, BLOCKFROST_KEY, CBOR_HEX) are server-side only
 }
 
 interface ImportMeta {

@@ -1,10 +1,6 @@
 import { Batch } from '../types/supplychain';
 
-// Cardano Minting API Configuration
-const MINT_API_URL = import.meta.env.VITE_MINT_API_URL || 'https://thirsty-bat-79-y99yj1aw8c92.deno.dev/mint';
-const BLOCKFROST_KEY = import.meta.env.VITE_BLOCKFROST_KEY || '';
-const SECRET_SEED = import.meta.env.VITE_SECRET_SEED || '';
-const CBOR_HEX = import.meta.env.VITE_CBOR_HEX || '';
+// Cardano Network Configuration (public - safe for client)
 const CARDANO_NETWORK = import.meta.env.VITE_CARDANO_NETWORK || 'preprod';
 
 // CardanoScan URLs
@@ -40,20 +36,13 @@ export class MintError extends Error {
 
 /**
  * Mint a batch as a Cardano native token
- * Calls the external minting API with batch metadata
+ * Calls the Netlify Function which handles secrets securely server-side
  */
 export async function mintBatchToken(batch: Batch): Promise<MintResponse> {
-    // Validate environment variables
-    if (!BLOCKFROST_KEY || !SECRET_SEED || !CBOR_HEX) {
-        throw new MintError(
-            'Minting credentials not configured. Please set VITE_BLOCKFROST_KEY, VITE_SECRET_SEED, and VITE_CBOR_HEX environment variables.'
-        );
-    }
-
     // Generate unique token name
     const tokenName = `Coffee#${batch.batchNumber?.replace('BATCH-', '') || batch.id.substring(0, 8)}`;
 
-    // Build metadata from batch info
+    // Build metadata from batch info (public data only)
     const metadata = {
         name: `Coffee batch ${batch.batchNumber || batch.id.substring(0, 8)}`,
         weight: String(batch.initialWeight),
@@ -67,33 +56,27 @@ export async function mintBatchToken(batch: Batch): Promise<MintResponse> {
         cropType: batch.cropType
     };
 
-    // Build request payload as per API documentation
-    const requestBody = {
-        blockfrostKey: BLOCKFROST_KEY,
-        secretSeed: SECRET_SEED,
-        tokenName,
-        metadata,
-        cborHex: CBOR_HEX
-    };
-
     try {
-        const response = await fetch(MINT_API_URL, {
+        // Call the Netlify Function (secrets are handled server-side)
+        const response = await fetch('/.netlify/functions/mint', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify(requestBody),
+            body: JSON.stringify({
+                tokenName,
+                metadata,
+            }),
         });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new MintError(`Minting API returned ${response.status}: ${errorText}`);
-        }
 
         const data = await response.json();
 
+        if (!response.ok) {
+            throw new MintError(data.error || `Minting failed with status ${response.status}`);
+        }
+
         if (data.status !== 'success') {
-            throw new MintError(`Minting failed: ${data.message || 'Unknown error'}`, data);
+            throw new MintError(`Minting failed: ${data.error || 'Unknown error'}`, data);
         }
 
         return {
@@ -106,6 +89,6 @@ export async function mintBatchToken(batch: Batch): Promise<MintResponse> {
         if (error instanceof MintError) {
             throw error;
         }
-        throw new MintError(`Failed to connect to minting API: ${(error as Error).message}`);
+        throw new MintError(`Failed to mint: ${(error as Error).message}`);
     }
 }
