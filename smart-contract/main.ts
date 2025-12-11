@@ -106,6 +106,48 @@ router.post("/mint", async (context) => {
     context.response.body = { error: error.message };
   }
 });
+router.post("/transfer", async (context) => {
+  try {
+    const body = await context.request.body({ type: "json" }).value;
+
+    if (!body.blockfrostKey || !body.secretSeed || !body.recipientAddress || !body.assetUnit) {
+        throw new Error("Missing required fields");
+    }
+
+    const lucid = await Lucid(
+      new Blockfrost("https://cardano-preprod.blockfrost.io/api/v0", body.blockfrostKey),
+      "Preprod"
+    );
+
+    lucid.selectWallet.fromSeed(body.secretSeed);
+    
+    const metadataLabel = 674;
+    const metadataContent = body.metadata || { msg: ["Transferring Asset", "Powered by Lucid"] };
+
+    console.log(`Sending ${body.assetUnit} to ${body.recipientAddress}...`);
+    
+    const tx = await lucid.newTx()
+      .pay.ToAddress(body.recipientAddress, { [body.assetUnit]: 1n })
+      .attachMetadata(metadataLabel, metadataContent)
+      .complete();
+
+    const signedTx = await tx.sign.withWallet().complete();
+    const txHash = await signedTx.submit();
+
+    console.log("Transfer successful:", txHash);
+
+    context.response.body = {
+      status: "success",
+      txHash,
+      message: "Asset transferred with metadata"
+    };
+
+  } catch (error) {
+    console.error("TRANSFER ERROR:", error);
+    context.response.status = 500;
+    context.response.body = { error: error instanceof Error ? error.message : String(error) };
+  }
+});
 
 const app = new Application();
 app.use(router.routes());

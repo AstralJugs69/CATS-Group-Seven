@@ -1,0 +1,9 @@
+{
+  "nodeModulesDir": "auto",
+  "compilerOptions": {
+    "strict": true
+  },
+  "imports": {
+    "lucid": "npm:@lucid-evolution/lucid@latest"
+  }
+}
