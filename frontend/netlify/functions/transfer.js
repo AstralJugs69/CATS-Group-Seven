@@ -1,5 +1,6 @@
 // Netlify Function to handle Cardano token transfers securely
 // Transfers token to recipient address and updates metadata
+// Version: 1.1
 
 export async function handler(event, context) {
     if (event.httpMethod !== 'POST') {
