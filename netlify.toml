@@ -16,10 +16,7 @@
   NODE_VERSION = "18"
 
 # Let Netlify Functions handle their own routing (MUST come before SPA catch-all)
-[[redirects]]
-  from = "/.netlify/*"
-  to = "/.netlify/:splat"
-  status = 200
+
 
 # SPA routing - redirect all OTHER paths to index.html
 [[redirects]]
