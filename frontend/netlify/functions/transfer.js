@@ -5,6 +5,7 @@ export async function handler(event, context) {
     if (event.httpMethod !== 'POST') {
         return {
             statusCode: 405,
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ error: 'Method not allowed' }),
         };
     }
@@ -18,8 +19,10 @@ export async function handler(event, context) {
     const PROCESSOR_WALLET_ADDRESS = 'addr_test1qq63rds7cr2e7vq2jz2qrf66flk9qaunqvs7htjtsgg84sqrtd0enkkwga8mx4wegagjqx9kp78eu77xw5y8fra2058qt2sz5e';
 
     if (!BLOCKFROST_KEY || !SECRET_SEED) {
+        console.error('Missing credentials:', { hasBlockfrost: !!BLOCKFROST_KEY, hasSeed: !!SECRET_SEED });
         return {
             statusCode: 500,
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ error: 'Transfer credentials not configured on server' }),
         };
     }
@@ -30,9 +33,12 @@ export async function handler(event, context) {
         if (!assetUnit || !status) {
             return {
                 statusCode: 400,
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ error: 'assetUnit and status are required' }),
             };
         }
+
+        console.log('Transfer request:', { assetUnit, status, recipientAddress: PROCESSOR_WALLET_ADDRESS });
 
         const requestBody = {
             blockfrostKey: BLOCKFROST_KEY,
@@ -52,15 +58,36 @@ export async function handler(event, context) {
             body: JSON.stringify(requestBody),
         });
 
+        // Get response as text first
+        const responseText = await response.text();
+        console.log('Transfer API response:', response.status, responseText);
+
         if (!response.ok) {
-            const errorText = await response.text();
+            // Try to parse as JSON, otherwise use raw text
+            let errorMessage = responseText;
+            try {
+                const errorJson = JSON.parse(responseText);
+                errorMessage = errorJson.error || errorJson.message || responseText;
+            } catch {
+                // Use raw text
+            }
             return {
                 statusCode: response.status,
-                body: JSON.stringify({ error: `Transfer API error: ${errorText}` }),
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ error: `Transfer API error: ${errorMessage}` }),
             };
         }
 
-        const data = await response.json();
+        let data;
+        try {
+            data = JSON.parse(responseText);
+        } catch {
+            return {
+                statusCode: 500,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ error: `Invalid JSON response: ${responseText.substring(0, 200)}` }),
+            };
+        }
 
         return {
             statusCode: 200,
@@ -75,6 +102,7 @@ export async function handler(event, context) {
         console.error('Transfer error:', error);
         return {
             statusCode: 500,
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ error: `Server error: ${error.message}` }),
         };
     }
