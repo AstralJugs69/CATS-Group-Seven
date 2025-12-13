@@ -26,8 +26,10 @@ export default function QRScanner({ onScanSuccess, onScanError }: QRScannerProps
 
     const startScanning = async () => {
         setError(null);
+        if (isScanning) return;
 
         try {
+            // Always create a new instance to ensure fresh state
             if (!scannerRef.current) {
                 scannerRef.current = new Html5Qrcode(containerId);
             }
@@ -35,54 +37,68 @@ export default function QRScanner({ onScanSuccess, onScanError }: QRScannerProps
             await scannerRef.current.start(
                 { facingMode: 'environment' },
                 {
-                    fps: 5, // Reduced from 10 to 5 for better performance
+                    fps: 5,
                     qrbox: { width: 250, height: 250 },
                     aspectRatio: 1.0,
-                    // Limit resolution processing to avoid freezing on high-res cameras
                     videoConstraints: {
                         width: { min: 640, ideal: 720, max: 1280 },
                         height: { min: 480, ideal: 720, max: 720 },
                     }
                 },
                 (decodedText) => {
-                    // Stop scanning on success
-                    stopScanning();
-                    onScanSuccess(decodedText);
+                    handleScanSuccess(decodedText);
                 },
                 (errorMessage) => {
-                    // Ignore continuous scan errors (normal behavior)
+                    // Ignore continuous scan errors
                 }
             );
 
             setIsScanning(true);
         } catch (err: any) {
+            console.error(err);
             const errorMessage = err?.message || 'Failed to access camera';
             setError(errorMessage);
+            setIsScanning(false);
             if (onScanError) {
                 onScanError(errorMessage);
             }
         }
     };
 
+    const handleScanSuccess = async (decodedText: string) => {
+        await stopScanning();
+        onScanSuccess(decodedText);
+    };
+
     const stopScanning = async () => {
-        if (scannerRef.current && isScanning) {
-            try {
+        if (!scannerRef.current) return;
+
+        try {
+            // We use the library's internal state check if available, or just try-catch stop
+            // Note: Html5Qrcode.isScanning property might not be publicly typed but exists
+            if (isScanning) {
                 await scannerRef.current.stop();
-            } catch (err) {
-                console.error('Error stopping scanner:', err);
             }
+        } catch (err) {
+            console.warn('Error stopping scanner (may slightly race with unmount):', err);
+        } finally {
+            // We DO NOT call clear() here as it removes DOM nodes that React manages
+            // scannerRef.current.clear(); 
+            scannerRef.current = null;
+            setIsScanning(false);
         }
-        setIsScanning(false);
     };
 
     useEffect(() => {
         return () => {
-            // Cleanup on unmount
+            // Cleanup on unmount - sync cleanup
             if (scannerRef.current) {
-                if (scannerRef.current.isScanning) {
-                    scannerRef.current.stop().catch(() => { });
+                try {
+                    scannerRef.current.stop().catch(e => console.warn("Cleanup stop warning:", e));
+                    scannerRef.current = null;
+                } catch (e) {
+                    // ignore
                 }
-                scannerRef.current.clear();
             }
         };
     }, []);
