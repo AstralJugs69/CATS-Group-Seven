@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Batch } from '../../types/supplychain';
 import { transferToken, getCardanoScanTxUrl, MintError } from '../../services/cardanoApi';
+import { updateBatchStatus } from '../../services/api';
 import LoadingSpinner from '../common/LoadingSpinner';
 import { Card, CardContent } from '../ui/Card';
 import { Button } from '../ui/Button';
@@ -82,6 +83,18 @@ export default function StatusUpdate({ batch, onSuccess }: StatusUpdateProps) {
       );
 
       setTxHash(result.txHash);
+
+      // Update batch status in database so next transfer uses correct seed
+      try {
+        await updateBatchStatus({
+          batchId: batch.id,
+          action: `PROCESSING_${formData.status.toUpperCase()}`,
+          notes: formData.note || `Status updated to ${formData.status}`
+        });
+      } catch (dbError) {
+        console.warn('Failed to update batch status in database:', dbError);
+        // Don't fail the whole operation, blockchain transfer succeeded
+      }
 
       if (onSuccess) {
         onSuccess();

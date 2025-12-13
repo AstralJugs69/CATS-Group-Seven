@@ -264,6 +264,11 @@ export async function updateBatchStatus(updateData: StatusUpdateData): Promise<B
     const statusMap: Record<string, string> = {
         'PROCESSING_STARTED': 'processing',
         'PROCESSING_COMPLETE': 'processed',
+        'PROCESSING_WASHED': 'washed',
+        'PROCESSING_DRIED': 'dried',
+        'PROCESSING_MILLED': 'milled',
+        'PROCESSING_GRADED': 'graded',
+        'PROCESSING_EXPORTED': 'exported',
         'IN_TRANSIT': 'in_transit',
         'DELIVERED': 'delivered',
         'RETAIL_READY': 'retail'
