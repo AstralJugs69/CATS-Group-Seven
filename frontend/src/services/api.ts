@@ -329,14 +329,13 @@ export async function recordMinting(
         .from('blockchain_metadata')
         .select('id')
         .eq('batch_id', batchId)
-        .single();
+        .maybeSingle();
 
     if (existing) {
         throw new ApiError('Batch is already minted');
     }
 
-    // Ignore not found error
-    if (findError && findError.code !== 'PGRST116') {
+    if (findError) {
         throw new ApiError(findError.message, parseInt(findError.code), findError.details);
     }
 
