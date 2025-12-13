@@ -70,11 +70,15 @@ export default function StatusUpdate({ batch, onSuccess }: StatusUpdateProps) {
     setError(null);
 
     try {
+      // First transfer if batch is still in 'harvested' status (hasn't been processed yet)
+      const isFirstTransfer = batch.status === 'harvested';
+
       const result = await transferToken(
         assetUnit,
         formData.status,
         formData.description,
-        formData.note
+        formData.note,
+        isFirstTransfer
       );
 
       setTxHash(result.txHash);
@@ -175,8 +179,8 @@ export default function StatusUpdate({ batch, onSuccess }: StatusUpdateProps) {
                   type="button"
                   onClick={() => setFormData(prev => ({ ...prev, status: status.value }))}
                   className={`p-4 border-2 rounded-lg text-left transition ${formData.status === status.value
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-200 hover:border-gray-300'
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-gray-200 hover:border-gray-300'
                     }`}
                 >
                   <div className="font-medium text-gray-800">{status.label}</div>

@@ -1,6 +1,5 @@
 // Netlify Function to handle Cardano token transfers securely
-// Transfers token to recipient address and updates metadata
-// Version: 1.1
+// Version: 2.0 - Supports first transfer (minting wallet) and subsequent self-transfers (processor wallet)
 
 export async function handler(event, context) {
     if (event.httpMethod !== 'POST') {
@@ -11,19 +10,18 @@ export async function handler(event, context) {
         };
     }
 
-    // Get all credentials from environment variables (same as mint)
+    // Get all credentials from environment variables
     const TRANSFER_API_URL = process.env.TRANSFER_API_URL;
     const BLOCKFROST_KEY = process.env.BLOCKFROST_KEY;
-    const SECRET_SEED = process.env.SECRET_SEED;
+    const SECRET_SEED = process.env.SECRET_SEED; // Minting wallet (for first transfer)
+    const PROCESSOR_SECRET_SEED = process.env.PROCESSOR_SECRET_SEED; // Processor wallet (for subsequent updates)
     const PROCESSOR_WALLET_ADDRESS = process.env.PROCESSOR_WALLET_ADDRESS;
 
     // Validate all required environment variables
-    if (!TRANSFER_API_URL || !BLOCKFROST_KEY || !SECRET_SEED || !PROCESSOR_WALLET_ADDRESS) {
-        const missing = [];
-        if (!TRANSFER_API_URL) missing.push('TRANSFER_API_URL');
-        if (!BLOCKFROST_KEY) missing.push('BLOCKFROST_KEY');
-        if (!SECRET_SEED) missing.push('SECRET_SEED');
-        if (!PROCESSOR_WALLET_ADDRESS) missing.push('PROCESSOR_WALLET_ADDRESS');
+    const requiredVars = { TRANSFER_API_URL, BLOCKFROST_KEY, SECRET_SEED, PROCESSOR_SECRET_SEED, PROCESSOR_WALLET_ADDRESS };
+    const missing = Object.entries(requiredVars).filter(([_, v]) => !v).map(([k]) => k);
+
+    if (missing.length > 0) {
         console.error('Missing environment variables:', missing);
         return {
             statusCode: 500,
@@ -33,7 +31,7 @@ export async function handler(event, context) {
     }
 
     try {
-        const { assetUnit, status, description, note } = JSON.parse(event.body);
+        const { assetUnit, status, description, note, isFirstTransfer } = JSON.parse(event.body);
 
         if (!assetUnit || !status) {
             return {
@@ -43,11 +41,22 @@ export async function handler(event, context) {
             };
         }
 
-        console.log('Transfer request:', { assetUnit, status, recipientAddress: PROCESSOR_WALLET_ADDRESS });
+        // Determine which seed to use:
+        // - First transfer: use minting wallet (SECRET_SEED) to send to processor
+        // - Subsequent transfers: use processor wallet (PROCESSOR_SECRET_SEED) to self-transfer
+        const seedToUse = isFirstTransfer ? SECRET_SEED : PROCESSOR_SECRET_SEED;
+        const transferType = isFirstTransfer ? 'first transfer (minting → processor)' : 'self-transfer (processor → processor)';
+
+        console.log('Transfer request:', {
+            assetUnit,
+            status,
+            transferType,
+            recipientAddress: PROCESSOR_WALLET_ADDRESS
+        });
 
         const requestBody = {
             blockfrostKey: BLOCKFROST_KEY,
-            secretSeed: SECRET_SEED,
+            secretSeed: seedToUse,
             metadata: {
                 status,
                 description: description || '',

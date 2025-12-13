@@ -102,12 +102,14 @@ export interface TransferResponse {
 
 /**
  * Transfer a token to the processor wallet with updated metadata
+ * @param isFirstTransfer - true for minting→processor, false for processor→processor (self-transfer)
  */
 export async function transferToken(
     assetUnit: string,
     status: string,
     description?: string,
-    note?: string
+    note?: string,
+    isFirstTransfer: boolean = false
 ): Promise<TransferResponse> {
     try {
         const response = await fetch('/.netlify/functions/transfer', {
@@ -117,7 +119,8 @@ export async function transferToken(
                 assetUnit,
                 status,
                 description: description || '',
-                note: note || ''
+                note: note || '',
+                isFirstTransfer
             }),
         });
 
