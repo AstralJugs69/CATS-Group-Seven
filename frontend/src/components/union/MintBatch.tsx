@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Batch } from '../../types/supplychain';
 import { mintBatchToken, getCardanoScanTxUrl, getCardanoScanTokenUrl, MintError } from '../../services/cardanoApi';
 import { recordMinting } from '../../services/api';
+import { useCooldown } from '../../hooks/useCooldown';
 import QRCodeDisplay from '../common/QRCodeDisplay';
 import LoadingSpinner from '../common/LoadingSpinner';
 import { Card, CardContent } from '../ui/Card';
@@ -13,36 +14,17 @@ interface MintBatchProps {
   onMintSuccess?: () => void;
 }
 
-// Time to wait before showing CardanoScan links (blockchain confirmation delay)
-const BLOCKCHAIN_CONFIRMATION_DELAY_MS = 120000; // 2 minutes
-
 export default function MintBatch({ batch, onMintSuccess }: MintBatchProps) {
   const navigate = useNavigate();
   const [isMinting, setIsMinting] = useState(false);
   const [justMinted, setJustMinted] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [linksReady, setLinksReady] = useState(false);
-  const [countdown, setCountdown] = useState(0);
 
-  // Countdown timer for links (only for freshly minted)
-  useEffect(() => {
-    if (justMinted && !linksReady) {
-      setCountdown(BLOCKCHAIN_CONFIRMATION_DELAY_MS / 1000);
-
-      const interval = setInterval(() => {
-        setCountdown(prev => {
-          if (prev <= 1) {
-            clearInterval(interval);
-            setLinksReady(true);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-
-      return () => clearInterval(interval);
-    }
-  }, [justMinted, linksReady]);
+  // Cooldown hook - unique key per batch
+  const { isActive: isCooldownActive, remainingTime, startCooldown, formatTime } = useCooldown(
+    batch ? `mint_batch_${batch.id}` : 'temp',
+    120000 // 2 minutes
+  );
 
   const handleMint = async () => {
     if (!batch) return;
@@ -74,6 +56,7 @@ export default function MintBatch({ batch, onMintSuccess }: MintBatchProps) {
       );
 
       setJustMinted(true);
+      startCooldown(); // Start cooldown for links
 
       if (onMintSuccess) {
         onMintSuccess();
@@ -88,12 +71,6 @@ export default function MintBatch({ batch, onMintSuccess }: MintBatchProps) {
     } finally {
       setIsMinting(false);
     }
-  };
-
-  const formatCountdown = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   // No batch selected
@@ -119,7 +96,9 @@ export default function MintBatch({ batch, onMintSuccess }: MintBatchProps) {
     const txHash = batch.mintTxHash || '';
     const unit = batch.mintUnit || '';
     const policyId = batch.policyId || '';
-    const showCountdown = justMinted && !linksReady;
+
+    // Links are disabled if cooldown is active
+    const linksDisabled = isCooldownActive;
 
     return (
       <div className="max-w-2xl mx-auto">
@@ -153,17 +132,16 @@ export default function MintBatch({ batch, onMintSuccess }: MintBatchProps) {
               )}
 
               {/* CardanoScan Links */}
-              {/* CardanoScan Links */}
               <div className="flex flex-col items-center gap-3">
                 <div className="flex gap-2 justify-center flex-wrap">
                   <div className="relative group">
                     <a
-                      href={(!showCountdown && txHash) ? getCardanoScanTxUrl(txHash) : undefined}
+                      href={(!linksDisabled && txHash) ? getCardanoScanTxUrl(txHash) : undefined}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className={showCountdown ? 'pointer-events-none' : ''}
+                      className={linksDisabled ? 'pointer-events-none' : ''}
                     >
-                      <Button variant="outline" size="sm" disabled={showCountdown}>
+                      <Button variant="outline" size="sm" disabled={linksDisabled}>
                         🔍 View Transaction
                       </Button>
                     </a>
@@ -172,12 +150,12 @@ export default function MintBatch({ batch, onMintSuccess }: MintBatchProps) {
                   {unit && (
                     <div className="relative group">
                       <a
-                        href={(!showCountdown) ? getCardanoScanTokenUrl(unit) : undefined}
+                        href={(!linksDisabled) ? getCardanoScanTokenUrl(unit) : undefined}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className={showCountdown ? 'pointer-events-none' : ''}
+                        className={linksDisabled ? 'pointer-events-none' : ''}
                       >
-                        <Button variant="outline" size="sm" disabled={showCountdown}>
+                        <Button variant="outline" size="sm" disabled={linksDisabled}>
                           🪙 View Token
                         </Button>
                       </a>
@@ -185,9 +163,9 @@ export default function MintBatch({ batch, onMintSuccess }: MintBatchProps) {
                   )}
                 </div>
 
-                {showCountdown && (
+                {linksDisabled && (
                   <p className="text-amber-700 text-xs">
-                    ⏳ Links active in <strong>{formatCountdown(countdown)}</strong> (waiting for blockchain)
+                    ⏳ Links active in <strong>{formatTime(remainingTime)}</strong> (waiting for blockchain)
                   </p>
                 )}
               </div>
