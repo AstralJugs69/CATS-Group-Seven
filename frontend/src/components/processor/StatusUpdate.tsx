@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Batch } from '../../types/supplychain';
 import { transferToken, getCardanoScanTxUrl, MintError } from '../../services/cardanoApi';
 import { updateBatchStatus } from '../../services/api';
+import { useCooldown } from '../../hooks/useCooldown';
 import LoadingSpinner from '../common/LoadingSpinner';
 import { Card, CardContent } from '../ui/Card';
 import { Button } from '../ui/Button';
@@ -44,6 +45,12 @@ export default function StatusUpdate({ batch, onSuccess }: StatusUpdateProps) {
   const [txHash, setTxHash] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Cooldown hook - unique key per batch
+  const { isActive: isCooldownActive, remainingTime, startCooldown, formatTime } = useCooldown(
+    batch ? `process_batch_${batch.id}` : 'temp',
+    120000 // 2 minutes
+  );
+
   // Determine which stages are completed based on batch status
   const currentStatusIdx = batch ? getStatusIndex(batch.status) : -1;
 
@@ -70,6 +77,29 @@ export default function StatusUpdate({ batch, onSuccess }: StatusUpdateProps) {
     );
   }
 
+  // Cooldown UI Overlay
+  if (isCooldownActive && !txHash) {
+    return (
+      <Card>
+        <CardContent className="p-8 text-center">
+          <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+            <span className="text-2xl">⏳</span>
+          </div>
+          <h3 className="text-xl font-semibold text-gray-800 mb-2">Cooling Down</h3>
+          <p className="text-gray-600 mb-6">
+            Please wait before processing this batch again to allow the blockchain to confirm the previous transaction.
+          </p>
+          <div className="text-3xl font-mono font-bold text-amber-600 mb-6">
+            {formatTime(remainingTime)}
+          </div>
+          <Button variant="outline" onClick={() => navigate('/processor/tokens')}>
+            Back to Tokens
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
   // Check if batch has assetUnit for transfer
   const assetUnit = batch.mintUnit;
 
@@ -89,6 +119,8 @@ export default function StatusUpdate({ batch, onSuccess }: StatusUpdateProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isCooldownActive) return;
+
     setIsSubmitting(true);
     setError(null);
 
@@ -102,6 +134,7 @@ export default function StatusUpdate({ batch, onSuccess }: StatusUpdateProps) {
       );
 
       setTxHash(result.txHash);
+      startCooldown(); // Start cooldown on success
 
       // Update batch status in database so next transfer uses correct seed
       try {

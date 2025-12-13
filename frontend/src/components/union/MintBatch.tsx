@@ -153,27 +153,44 @@ export default function MintBatch({ batch, onMintSuccess }: MintBatchProps) {
               )}
 
               {/* CardanoScan Links */}
-              {showCountdown ? (
-                <div className="text-center">
-                  <p className="text-amber-700 text-sm mb-2">
-                    ⏳ Waiting for blockchain confirmation...
-                  </p>
-                  <p className="text-gray-500 text-xs">
-                    CardanoScan links available in <strong>{formatCountdown(countdown)}</strong>
-                  </p>
-                </div>
-              ) : txHash ? (
+              {/* CardanoScan Links */}
+              <div className="flex flex-col items-center gap-3">
                 <div className="flex gap-2 justify-center flex-wrap">
-                  <a href={getCardanoScanTxUrl(txHash)} target="_blank" rel="noopener noreferrer">
-                    <Button variant="outline" size="sm">🔍 View Transaction</Button>
-                  </a>
-                  {unit && (
-                    <a href={getCardanoScanTokenUrl(unit)} target="_blank" rel="noopener noreferrer">
-                      <Button variant="outline" size="sm">🪙 View Token</Button>
+                  <div className="relative group">
+                    <a
+                      href={(!showCountdown && txHash) ? getCardanoScanTxUrl(txHash) : undefined}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={showCountdown ? 'pointer-events-none' : ''}
+                    >
+                      <Button variant="outline" size="sm" disabled={showCountdown}>
+                        🔍 View Transaction
+                      </Button>
                     </a>
+                  </div>
+
+                  {unit && (
+                    <div className="relative group">
+                      <a
+                        href={(!showCountdown) ? getCardanoScanTokenUrl(unit) : undefined}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={showCountdown ? 'pointer-events-none' : ''}
+                      >
+                        <Button variant="outline" size="sm" disabled={showCountdown}>
+                          🪙 View Token
+                        </Button>
+                      </a>
+                    </div>
                   )}
                 </div>
-              ) : null}
+
+                {showCountdown && (
+                  <p className="text-amber-700 text-xs">
+                    ⏳ Links active in <strong>{formatCountdown(countdown)}</strong> (waiting for blockchain)
+                  </p>
+                )}
+              </div>
             </div>
 
             {/* QR Code */}
