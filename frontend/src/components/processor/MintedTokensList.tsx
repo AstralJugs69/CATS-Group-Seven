@@ -101,7 +101,9 @@ export default function MintedTokensList() {
                     <div className="grid gap-3 pl-4">
                         {tokens.map((batch, index) => {
                             const fullyProcessed = isFullyProcessed(batch.status);
-                            const qrData = batch.mintUnit || batch.id;
+                            const rawId = batch.mintUnit || batch.id;
+                            // Generate URL for universal scanning (works with phone camera)
+                            const qrData = `${window.location.origin}/consumer?id=${rawId}`;
 
                             return (
                                 <motion.div

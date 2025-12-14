@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ProductJourney from './ProductJourney';
 import DashboardLayout from '../layout/DashboardLayout';
 import QRScanner from '../common/QRScanner';
@@ -10,16 +10,38 @@ export default function ConsumerVerification() {
   const [manualId, setManualId] = useState('');
   const [inputMode, setInputMode] = useState<'scan' | 'manual'>('scan');
 
-  const handleScanSuccess = (decodedText: string) => {
-    // The QR code contains the token unit or batch ID
-    setScannedData(decodedText);
-  };
+  // Handle Deep Links (URL params)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const idParam = params.get('id');
+    if (idParam) {
+      setScannedData(idParam);
+    }
+  }, []);
 
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (manualId.trim()) {
       setScannedData(manualId.trim());
     }
+  };
+
+  const handleScanSuccess = (decodedText: string) => {
+    // The QR code might be a full URL now for universal scanning
+    // We need to extract the ID if it is a URL
+    let data = decodedText;
+
+    try {
+      const url = new URL(decodedText);
+      const idParam = url.searchParams.get('id');
+      if (idParam) {
+        data = idParam;
+      }
+    } catch (e) {
+      // Not a URL, treat as raw ID
+    }
+
+    setScannedData(data);
   };
 
   const handleScanAnother = () => {
@@ -63,8 +85,8 @@ export default function ConsumerVerification() {
                   <button
                     onClick={() => setInputMode('scan')}
                     className={`px-4 py-2 rounded-md text-sm font-medium transition ${inputMode === 'scan'
-                        ? 'bg-white shadow text-purple-700'
-                        : 'text-gray-600 hover:text-gray-800'
+                      ? 'bg-white shadow text-purple-700'
+                      : 'text-gray-600 hover:text-gray-800'
                       }`}
                   >
                     📷 Scan QR
@@ -72,8 +94,8 @@ export default function ConsumerVerification() {
                   <button
                     onClick={() => setInputMode('manual')}
                     className={`px-4 py-2 rounded-md text-sm font-medium transition ${inputMode === 'manual'
-                        ? 'bg-white shadow text-purple-700'
-                        : 'text-gray-600 hover:text-gray-800'
+                      ? 'bg-white shadow text-purple-700'
+                      : 'text-gray-600 hover:text-gray-800'
                       }`}
                   >
                     ⌨️ Enter ID
