@@ -101,19 +101,58 @@ export async function getAllBatches(): Promise<Batch[]> {
  */
 export async function getBatchById(idOrNumber: string): Promise<Batch | undefined> {
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrNumber);
+    const isTokenUnit = idOrNumber.length > 56; // Simple heuristic for PolicyID (56) + AssetName
 
+    let batchId = idOrNumber;
+
+    // If it's a token unit, finding the batch ID first
+    if (isTokenUnit) {
+        // unit = policy_id (56 chars) + asset_name_hex
+        const policyId = idOrNumber.substring(0, 56);
+        const assetNameHex = idOrNumber.substring(56);
+
+        // Try strict match first
+        const { data: meta } = await supabase
+            .from('blockchain_metadata')
+            .select('batch_id')
+            .eq('policy_id', policyId)
+            .eq('asset_name_hex', assetNameHex)
+            .maybeSingle();
+
+        if (meta) {
+            batchId = (meta as any).batch_id;
+        } else {
+            // Fallback: search by mint_tx_hash if input looks like a hash (64 chars)
+            if (idOrNumber.length === 64) {
+                const { data: txMeta } = await supabase
+                    .from('blockchain_metadata')
+                    .select('batch_id')
+                    .eq('mint_transaction_hash', idOrNumber)
+                    .maybeSingle();
+                if (txMeta) batchId = (txMeta as any).batch_id;
+                else return undefined;
+            } else {
+                return undefined;
+            }
+        }
+    }
+
+    // Now query the batch using the resolved batchId (or original if it was UUID/BatchNum)
     let query = supabase
         .from('batches')
         .select(`
             *,
             users (*),
-            status_updates (*)
+            status_updates (*),
+            blockchain_metadata (*)
         `);
 
-    if (isUuid) {
-        query = query.eq('id', idOrNumber);
+    if (isUuid || isTokenUnit) {
+        // If we resolved a token unit, batchId is now a UUID. 
+        // If original input was UUID, batchId is that UUID.
+        query = query.eq('id', batchId);
     } else {
-        query = query.eq('batch_number', idOrNumber);
+        query = query.eq('batch_number', batchId);
     }
 
     const { data, error } = await query.single();

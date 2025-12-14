@@ -42,6 +42,12 @@ export default function RoleSelector() {
   }, []);
 
   const handleRoleSelect = async (roleId: string) => {
+    // Consumer role is public "Guest Mode" - no login required
+    if (roleId === 'consumer') {
+      navigate('/consumer');
+      return;
+    }
+
     // Always require login if not logged in
     if (!user) {
       navigate(`/login?role=${roleId}`);
@@ -58,6 +64,16 @@ export default function RoleSelector() {
 
     // User is logged in with correct role, go to dashboard
     navigate(`/${roleId}`);
+  };
+
+  const getButtonText = (roleId: string) => {
+    if (loadingRole === roleId) return 'Checking...';
+
+    if (roleId === 'consumer') {
+      return 'Explore as Guest';
+    }
+
+    return user ? `Enter as ${roles.find(r => r.id === roleId)?.title}` : `Login to Enter as ${roles.find(r => r.id === roleId)?.title}`;
   };
 
   const roles = [
@@ -146,7 +162,7 @@ export default function RoleSelector() {
                 role.buttonColor
               )}
             >
-              {loadingRole === role.id ? 'Checking...' : (user ? `Enter as ${role.title}` : `Login to Enter as ${role.title}`)}
+              {getButtonText(role.id)}
             </button>
           </motion.div>
         ))}
